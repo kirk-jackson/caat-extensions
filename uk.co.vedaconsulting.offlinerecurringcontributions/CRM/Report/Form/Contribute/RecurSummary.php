@@ -85,7 +85,7 @@ class CRM_Report_Form_Contribute_RecurSummary extends CRM_Report_Form {
   }
 
   public function preProcess() {
-    $this->addFormRule(array('CRM_Recurringcontributionreports_Form_Report_RecurringContribution', 'formRule'), $this);
+    $this->addFormRule(array('CRM_Report_Form_Contribute_RecurSummary', 'formRule'), $this);
     parent::preProcess();
   }
   
@@ -211,7 +211,8 @@ class CRM_Report_Form_Contribute_RecurSummary extends CRM_Report_Form {
    */
   public static function formRule($params, $files, $self) {
     $errors = array();
-		if (!empty($params['start_date_relative']) || (empty($params['start_date_from']) && empty($params['start_date_to']))) {
+	// GK15082017-  FIX ME:  Not sure about the purpose of this rule. Fixing this in an assumption that this has been added to force the user to select start & end date, if Custom Date Range filter option selected.
+	if ($params['start_date_relative'] == '0' && (empty($params['start_date_from']) && empty($params['start_date_to']))) {
       $errors['_qf_default'] = ts("Please select date range in filter.");
     }
     return $errors;

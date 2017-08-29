@@ -83,6 +83,16 @@ class CRM_Contribute_Page_ContributionRecurTab extends CRM_Core_Page {
           'ref' => 'crm-enable-disable',
         ),
       );
+
+      // Hide edit link if the user does not have 'edit contributions' permission
+      if (!CRM_Core_Permission::check('edit contributions')) {
+        unset(self::$_links[CRM_Core_Action::UPDATE]);
+      }
+
+      // Hide delete link if the user does not have 'delete in CiviContribute' permission
+      if (!CRM_Core_Permission::check('delete in CiviContribute')) {
+        unset(self::$_links[CRM_Core_Action::DELETE]);
+      }
     }
 
     if ($recurID) {

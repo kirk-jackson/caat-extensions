@@ -325,7 +325,8 @@ class CRM_Contribute_Form_ContributionRecur extends CRM_Contribute_Form_Abstract
     $associatedContributions = array();
     $contributions = new CRM_Contribute_DAO_Contribution();
     $contributions->contribution_recur_id = $this->_id;
-    while ($contributions->find(TRUE)) {
+    $contributions->find();
+    while ($contributions->fetch()) {
       $associatedContributions[$contributions->id]['total_amount'] = $contributions->total_amount;
       $associatedContributions[$contributions->id]['financial_type'] = CRM_Contribute_PseudoConstant::financialType($contributions->financial_type_id);
       $associatedContributions[$contributions->id]['contribution_source'] = $contributions->source;

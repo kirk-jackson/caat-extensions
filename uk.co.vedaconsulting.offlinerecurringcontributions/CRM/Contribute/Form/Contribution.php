@@ -665,11 +665,27 @@ class CRM_Contribute_Form_Contribution extends CRM_Contribute_Form_AbstractEditP
     else {
       $recurContributions = array();
       $existingRecurContributions = CRM_Contribute_BAO_ContributionRecur::getRecurContributions($this->_contactID);
+      $config = CRM_Core_Config::singleton();
       // Get all backoffice payment processors
       if (!empty($existingRecurContributions)) {
         foreach ($existingRecurContributions as $ids => $recur) {
           if (array_key_exists($recur['payment_processor_id'], $offlinePaymentProcessors)) {
-            $recurContributions[$ids] = CRM_Utils_Money::format($recur['amount']) . ' / ' . $offlinePaymentProcessors[$recur['payment_processor_id']] . ' / ' . CRM_Contribute_PseudoConstant::contributionStatus($recur['contribution_status_id']) . ' / ' . CRM_Utils_Date::customFormat($recur['start_date']);
+            // If Transaction ID is set, just use "Transaction ID" (because trxn_id is a unique key)
+            // Else if Processor ID is set, use "Payment Processor / Processor ID" (because processor_id should be unique within any payment processor)
+            // Else use "Payment Processor / Start Date (not including time) / Status / Amount"
+            if (!empty($recur['trxn_id'])) {
+              $recurContributions[$ids] = $recur['trxn_id'];
+            }
+            else if (!empty($recur['processor_id'])) {
+              $recurContributions[$ids] = $offlinePaymentProcessors[$recur['payment_processor_id']]
+              .' / '.$recur['processor_id'];
+            }
+            else {
+              $recurContributions[$ids] = $offlinePaymentProcessors[$recur['payment_processor_id']]
+              . ' / ' .CRM_Utils_Date::customFormat($recur['start_date'], $config->dateformatFull)
+              . ' / ' . CRM_Contribute_PseudoConstant::contributionStatus($recur['contribution_status_id'])
+              . ' / ' . CRM_Utils_Money::format($recur['amount']);
+            }
           }
         }
       }

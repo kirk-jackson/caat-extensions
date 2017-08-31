@@ -73,7 +73,7 @@ class CRM_Report_Form_Contribute_RecurSummary extends CRM_Report_Form {
         ),
         'filters' => array(
           'start_date' => array(
-            'title' => ts('Start Date'),
+            'title' => ts('Date Range'),
             'operatorType' => CRM_Report_Form::OP_DATE,
             'type' => CRM_Utils_Type::T_TIME,
           ),
@@ -81,6 +81,7 @@ class CRM_Report_Form_Contribute_RecurSummary extends CRM_Report_Form {
       ),
     );
     $this->_currencyColumn = 'civicrm_contribution_recur_currency';
+    $this->_dateRangefrom  = $this->_dateRangeTo = NULL;
     parent::__construct();
   }
 
@@ -212,8 +213,8 @@ class CRM_Report_Form_Contribute_RecurSummary extends CRM_Report_Form {
   public static function formRule($params, $files, $self) {
     $errors = array();
 	// GK15082017-  FIX ME:  Not sure about the purpose of this rule. Fixing this in an assumption that this has been added to force the user to select start & end date, if Custom Date Range filter option selected.
-	if ($params['start_date_relative'] == '0' && (empty($params['start_date_from']) && empty($params['start_date_to']))) {
-      $errors['_qf_default'] = ts("Please select date range in filter.");
+    if (empty($params['start_date_relative']) && (empty($params['start_date_from']) && empty($params['start_date_to']))) {
+      $errors['start_date_relative'] = ts("Please select date range in filter.");
     }
     return $errors;
   }
@@ -230,6 +231,53 @@ class CRM_Report_Form_Contribute_RecurSummary extends CRM_Report_Form {
     $this->_from = "
              FROM civicrm_contribution_recur   {$this->_aliases['civicrm_contribution_recur']}
     ";
+  }
+
+  //MV #4351, The date range filter allows you to select from a long list of relative date ranges, e.g. “This fiscal year”, “Last 30 days”, etc. None of these work. They all behave as if no date range has been selected. (The date range displayed at the top of the results is correct however.)
+  //so adding default where method to construct where clause with date range and other available filters.
+  function where() {
+    $clauses = array();
+    foreach ($this->_columns as $tableName => $table) {
+      if (array_key_exists('filters', $table)) {
+        foreach ($table['filters'] as $fieldName => $field) {
+          $clause = NULL;
+          if (CRM_Utils_Array::value('operatorType', $field) & CRM_Utils_Type::T_DATE) {
+            $relative = CRM_Utils_Array::value("{$fieldName}_relative", $this->_params);
+            $from     = CRM_Utils_Array::value("{$fieldName}_from", $this->_params);
+            $to       = CRM_Utils_Array::value("{$fieldName}_to", $this->_params);
+
+            $clause = $this->dateClause($field['dbAlias'], $relative, $from, $to, $field['type']);
+            list($this->_dateRangefrom, $this->_dateRangeTo) = $this->getFromTo($relative, $from, $to);
+          }
+          else {
+            $op = CRM_Utils_Array::value("{$fieldName}_op", $this->_params);
+            if ($op) {
+              $clause = $this->whereClause($field,
+                $op,
+                CRM_Utils_Array::value("{$fieldName}_value", $this->_params),
+                CRM_Utils_Array::value("{$fieldName}_min", $this->_params),
+                CRM_Utils_Array::value("{$fieldName}_max", $this->_params)
+              );
+            }
+          }
+
+          if (!empty($clause)) {
+            $clauses[] = $clause;
+          }
+        }
+      }
+    }
+
+    if (empty($clauses)) {
+      $this->_where = "WHERE ( 1 ) ";
+    }
+    else {
+      $this->_where = "WHERE " . implode(' AND ', $clauses);
+    }
+
+    if ($this->_aclWhere) {
+      $this->_where .= " AND {$this->_aclWhere} ";
+    }
   }
 
   public function postProcess() {
@@ -262,24 +310,11 @@ class CRM_Report_Form_Contribute_RecurSummary extends CRM_Report_Form {
 
     $entryFound = FALSE;
 
-    $startDateFrom = $startDateTo = '';
-		
-		if (empty($_POST)) {
-			$defaults = $this->getVar('_defaults');
-		}
-		
-		if (isset($_POST['start_date_from']) && !empty($_POST['start_date_from'])) {
-      $startDateFrom = CRM_Utils_Date::processDate($_POST['start_date_from']);
-    } else {
-			$startDateFrom = CRM_Utils_Date::processDate($defaults['start_date_from']);
-		}
+    // MV #4351 Cancelled and ACtive column incorrect when date range filter not set.
+    // Start date from and to are calculated in where clause based on the filter.
+    $startDateFrom = $this->_dateRangefrom;
+    $startDateTo   = $this->_dateRangeTo;
 
-    if (isset($_POST['start_date_to']) && !empty($_POST['start_date_to'])) {
-      $startDateTo = CRM_Utils_Date::processDate($_POST['start_date_to']);
-    }  else {
-			$startDateTo = CRM_Utils_Date::processDate($defaults['start_date_to']);
-		}
-    
     $started = $cancelled = $active = $total = 0;
 
     foreach ($rows as $rowNum => $row) {
@@ -289,7 +324,14 @@ class CRM_Report_Form_Contribute_RecurSummary extends CRM_Report_Form {
       $rows[$rowNum]['civicrm_contribution_recur_start_date'] = 0;
       $rows[$rowNum]['civicrm_contribution_recur_cancel_date'] = 0;
       $rows[$rowNum]['civicrm_contribution_recur_contribution_status_id'] = 0;
-			
+      //MV #4330 There is no point of porcessing below functionalities when payment Instrument ID not found. All of the below functionalities are depends on $paymentInstrumentId, Incase of null values below functionalities throw syntax error. so we should check is not empty before pass into SQL directly.. 
+      //FIXME: Should be not use varibale directly into SQL, we should value and data type as like civi standard.
+      if (empty($paymentInstrumentId)) {
+        $total = $total + $rows[$rowNum]['civicrm_contribution_recur_amount'];
+        $rows[$rowNum]['civicrm_contribution_recur_amount'] = CRM_Utils_Money::format($rows[$rowNum]['civicrm_contribution_recur_amount']);
+        continue;
+      }
+
       $startedSql = "SELECT count(*) as count FROM civicrm_contribution_recur WHERE payment_instrument_id = $paymentInstrumentId";
       if (!empty($startDateFrom)) {
         $startedSql .= " AND start_date >= '{$startDateFrom}'";

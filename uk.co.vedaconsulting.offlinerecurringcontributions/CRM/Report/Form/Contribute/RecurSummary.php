@@ -51,11 +51,13 @@ class CRM_Report_Form_Contribute_RecurSummary extends CRM_Report_Form {
             'required' => TRUE,
           ),
           'start_date' => array(
+            'type' => CRM_Utils_Type::T_INT,
             'title' => ts('Started'),
             'default' => TRUE,
             'required' => TRUE,
           ),
           'cancel_date' => array(
+            'type' => CRM_Utils_Type::T_INT,
             'title' => ts('Cancelled'),
             'default' => TRUE,
             'required' => TRUE,
@@ -66,6 +68,7 @@ class CRM_Report_Form_Contribute_RecurSummary extends CRM_Report_Form {
             'required' => TRUE,
           ),
           'amount' => array(
+            'type' => CRM_Utils_Type::T_INT,
             'title' => ts('Total Amount'),
             'default' => TRUE,
             'required' => TRUE,

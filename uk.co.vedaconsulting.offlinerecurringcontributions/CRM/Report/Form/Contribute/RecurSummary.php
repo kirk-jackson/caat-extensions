@@ -374,7 +374,12 @@ class CRM_Report_Form_Contribute_RecurSummary extends CRM_Report_Form {
         $activeSql .= " AND (end_date >= '{$startDateTo}' OR end_date IS NULL)";
 				$activeSql .= " AND (cancel_date > '{$startDateTo}' OR cancel_date IS NULL)";// http://support.vedaconsulting.co.uk/issues/701
       }
-			
+      //MV #4351#note-5, If the report’s end date is not set, the report should not count recurring contributions that have a Cancel Date or End Date.
+      else{
+        $activeSql .= " AND end_date IS NULL";
+        $activeSql .= " AND cancel_date IS NULL";
+      }
+
       $activeDao = CRM_Core_DAO::executeQuery($activeSql);
       $activeDao->fetch();
 

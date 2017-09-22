@@ -324,3 +324,19 @@ function civicrm_api3_job_process_offline_recurring_payments($params) {
   return civicrm_api3_create_success(ts('No contribution records were processed.'));
 }   
 
+/**
+ * Implements hook_civicrm_alterAPIPermissions().
+ *
+ * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_alterAPIPermissions
+ *
+ * To change permission for recurring contribution cancel action
+ */
+function offlinerecurringcontributions_civicrm_alterAPIPermissions($entity, $action, &$params, &$permissions) {
+  if ($entity == 'contribution_recur' AND $action == 'cancel') {
+    // Set check permission to false if the user has 'edit contributions' permission
+    // as the cancel action requires 'administer CiviCRM' permission
+    if (CRM_Core_Permission::check('edit contributions')) {
+      $params['check_permissions'] = FALSE;
+    }
+  }
+}

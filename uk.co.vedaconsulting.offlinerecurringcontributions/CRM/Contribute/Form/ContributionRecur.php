@@ -325,6 +325,7 @@ class CRM_Contribute_Form_ContributionRecur extends CRM_Contribute_Form_Abstract
     $associatedContributions = array();
     $contributions = new CRM_Contribute_DAO_Contribution();
     $contributions->contribution_recur_id = $this->_id;
+    $contributions->orderBy('receive_date DESC');
     $contributions->find();
     while ($contributions->fetch()) {
       $associatedContributions[$contributions->id]['total_amount'] = $contributions->total_amount;
